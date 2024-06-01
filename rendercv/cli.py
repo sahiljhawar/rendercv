@@ -13,6 +13,7 @@ import re
 import functools
 import shutil
 import os
+import sys
 
 from rich import print
 import rich.console
@@ -675,6 +676,11 @@ def cli_command_render(
             ' [cyan bold]--cv.phone "123-456-7890"[/cyan bold].',
         ),
     ] = None,
+    generate_sphinx: Annotated[
+        bool,
+        typer.Option(help="Generate a Sphinx project from the YAML input file.")
+        ,
+    ] = False,
     extra_data_model_override_argumets: typer.Context = None,
 ):
     """Generate a $\\LaTeX$ CV from a YAML input file."""
@@ -699,6 +705,8 @@ def cli_command_render(
         number_of_steps = number_of_steps - 1
     if dont_generate_markdown:
         number_of_steps = number_of_steps - 2
+    if generate_sphinx:
+        number_of_steps = number_of_steps + 1
     else:
         if dont_generate_html:
             number_of_steps = number_of_steps - 1
@@ -783,6 +791,70 @@ def cli_command_render(
                     shutil.copy2(html_file_path_in_output_folder, html_path)
                 progress.finish_the_current_step()
 
+        if generate_sphinx:
+            
+            progress.start_a_step("Generating a Sphinx project")
+
+            try:
+                from sphinx.application import Sphinx
+                from sphinx.errors import ExtensionError, ThemeError
+            except Exception as e:
+                print("Please install Sphinx:", e)
+                sys.exit(1)
+
+            try:
+                import sphinx_book_theme
+            except ImportError as e:
+                print("Please install sphinx-book-theme:", e)
+                sys.exit(1)
+
+            os.environ['SPHINX_MASTER_DOC'] = os.path.splitext(input_file_name)[0]
+
+            source_dir = output_directory / 'sphinx/source'
+            build_dir =  output_directory /'sphinx/build'
+            static_dir = source_dir / '_static'
+            if not os.path.exists(source_dir):
+                os.makedirs(source_dir)
+
+            if not os.path.exists(build_dir):
+                os.makedirs(build_dir)
+            if not os.path.exists(static_dir):
+                os.makedirs(static_dir)
+
+            conf_file_source = pathlib.Path(__file__).parent / 'conf.py'
+            conf_file_destination = source_dir / 'conf.py'
+
+            if not os.path.exists(conf_file_destination):
+                shutil.copy(conf_file_source, conf_file_destination)
+
+            conf_dir = output_directory / 'sphinx/source/'
+            doctree_dir = os.path.join(build_dir, 'doctrees')
+            builder = 'html'
+
+            shutil.copy(markdown_file_path_in_output_folder, source_dir)
+
+            temp = open(os.devnull, 'w')
+
+            try:
+                app = Sphinx(
+                    srcdir=source_dir,
+                    confdir=conf_dir,
+                    outdir=build_dir,
+                    doctreedir=doctree_dir,
+                    buildername=builder,
+                    status=temp
+                )
+                if os.path.exists(build_dir):
+                    shutil.rmtree(build_dir)
+                
+                app.build()
+                progress.finish_the_current_step()
+            except ExtensionError as e:
+                print(e)
+                print("Install myst-parser")
+
+            except ThemeError as e:
+                print(e)
 
 @app.command(
     name="new",

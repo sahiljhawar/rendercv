@@ -65,6 +65,9 @@ dependencies = [
     'typer==0.12.3',               # to create the command-line interface
     "markdown==3.6",               # to convert Markdown to HTML
     "PyMuPDF==1.24.4",             # to convert PDF files to images
+    "sphinx",                      # to build the documentation
+    "sphinx-book-theme",           # to build the documentation
+    "myst-parser",                 # to build the documentation
 ]
 classifiers = [
     "Intended Audience :: Science/Research",
